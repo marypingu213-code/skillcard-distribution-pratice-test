@@ -197,7 +197,6 @@
       
       // 全域狀態
       const [user, setUser] = useState(null);
-      // 'teacher_setup' | 'teacher_dashboard' | 'student_login' | 'student_menu' | 'practice' | 'testing' | 'result'
       const [appState, setAppState] = useState(urlTestId ? 'student_login' : 'teacher_setup');
       
       // ================= 教師端狀態 =================
@@ -208,15 +207,16 @@
       const [showSettings, setShowSettings] = useState(true);
       const [testCriteria, setTestCriteria] = useState({});
       const [activeTestId, setActiveTestId] = useState(null);
-      const [studentResults, setStudentResults] = useState([]); // 即時收取的學生成績
+      const [studentResults, setStudentResults] = useState([]);
 
       // ================= 學生端狀態 =================
       const [studentName, setStudentName] = useState('');
-      const [studentConfig, setStudentConfig] = useState(null); // 從雲端抓取的測驗設定
+      const [studentConfig, setStudentConfig] = useState(null); 
       
       // ================= 遊戲運行狀態 =================
       const [gameCards, setGameCards] = useState([]);
       const [flippedIds, setFlippedIds] = useState([]);
+      const [practiceMode, setPracticeMode] = useState('ordered'); // ★ 新增：'ordered' | 'random' 控制排列模式
       const [testAnswers, setTestAnswers] = useState({}); 
       const [recordingId, setRecordingId] = useState(null); 
       const [finalScore, setFinalScore] = useState({ score: 0, correct: 0 });
@@ -300,7 +300,6 @@
       };
 
       // ================= 教師端功能 =================
-      // 發布測驗 (儲存至 Firestore)
       const deployTest = async () => {
         if (!user) return alert('系統尚未連線，請稍後再試。');
         if (parsedDeck.length === 0) return alert('請至少輸入 1 張卡片！');
@@ -325,13 +324,11 @@
         }
       };
 
-      // 監聽測驗結果
       useEffect(() => {
         if (appState === 'teacher_dashboard' && activeTestId && user) {
           const resultsRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('testResults');
           const unsub = resultsRef.onSnapshot((snapshot) => {
             const res = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            // 在記憶體中篩選出屬於這個測驗的結果
             const currentTestRes = res.filter(r => r.testId === activeTestId);
             setStudentResults(currentTestRes);
           });
@@ -341,7 +338,6 @@
 
 
       // ================= 學生端功能 =================
-      // 學生登入並抓取測驗設定
       const studentLogin = async () => {
         if (!studentName.trim()) return alert('請輸入您的班級與姓名喔！');
         if (!user) return alert('系統連線中，請稍候...');
@@ -360,15 +356,34 @@
         }
       };
 
-      // 學生選擇模式並洗牌發牌
+      // ★ 核心：排序卡片邏輯 (支援「依序」與「隨機」) ★
+      const sortCards = (cards, mode) => {
+        let newCards = [...cards];
+        if (mode === 'ordered') {
+          newCards.sort((a, b) => {
+            let indexA = CATEGORIES.indexOf(a.category);
+            let indexB = CATEGORIES.indexOf(b.category);
+            if (indexA === -1) indexA = 99;
+            if (indexB === -1) indexB = 99;
+            // 類別相同時維持原本 id 的順序
+            if (indexA === indexB) return a.id.localeCompare(b.id);
+            return indexA - indexB;
+          });
+        } else {
+          newCards.sort(() => 0.5 - Math.random());
+        }
+        return newCards;
+      };
+
+      // 學生選擇模式並發牌
       const setupGameCards = (mode) => {
         let selectedCards = [];
         const sourceDeck = studentConfig.deck;
         
         if (mode === 'practice') {
-          selectedCards = [...sourceDeck];
+          setPracticeMode('ordered'); // 練習模式預設為「依序排」，幫助建立鷹架
+          selectedCards = sortCards([...sourceDeck], 'ordered');
         } else if (mode === 'testing') {
-          // 依據老師的配額抽題
           CATEGORIES.forEach(cat => {
             const count = studentConfig.testCriteria[cat] || 0;
             if (count > 0) {
@@ -377,9 +392,9 @@
               selectedCards.push(...shuffled.slice(0, count));
             }
           });
+          selectedCards.sort(() => 0.5 - Math.random()); // 測驗強制作隨機
         }
         
-        selectedCards.sort(() => 0.5 - Math.random());
         setGameCards(selectedCards);
         setFlippedIds([]);
         if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -705,22 +720,67 @@
         );
       }
 
-      // 5. 學生練習模式
+      // 5. 學生練習模式 (支援依序排 / 隨機排切換)
       if (appState === 'practice') {
         return (
           <div className="max-w-5xl mx-auto px-4 py-8 animate-[fadeIn_0.5s_ease-out]">
-            <div className="w-full flex items-center justify-between bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200 mb-6">
-              <button onClick={() => { if(window.speechSynthesis) window.speechSynthesis.cancel(); setAppState('student_menu'); }} className="text-slate-500 hover:text-indigo-600 font-bold flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-lg">
+            
+            {/* ★ 優化版：頂部導覽列 (加入排列模式切換) ★ */}
+            <div className="w-full flex flex-col md:flex-row items-center justify-between bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200 mb-6 gap-4">
+              
+              {/* 左側：結束按鈕 */}
+              <button 
+                onClick={() => { if(window.speechSynthesis) window.speechSynthesis.cancel(); setAppState('student_menu'); }} 
+                className="text-slate-500 hover:text-indigo-600 font-bold flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-lg shrink-0"
+              >
                 <i className="fa-solid fa-arrow-left"></i> 結束練習
               </button>
-              <div className="text-indigo-800 font-bold hidden sm:flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-lg">
-                <i className="fa-solid fa-headphones"></i> 點擊翻卡聽語音
+              
+              {/* 中央：提示語 (寬螢幕顯示) */}
+              <div className="text-indigo-800 font-bold hidden lg:flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-lg">
+                <i className="fa-solid fa-headphones"></i> 點擊翻卡，聽完會自動蓋牌喔！
               </div>
-              <button onClick={() => setupGameCards('practice')} className="text-white font-bold flex items-center gap-2 bg-indigo-500 px-4 py-2 rounded-lg hover:bg-indigo-600 shadow-sm">
-                <i className="fa-solid fa-shuffle"></i> 洗牌重練
-              </button>
+              
+              {/* 右側：模式切換與重新練習 */}
+              <div className="flex flex-wrap justify-center items-center gap-3">
+                
+                {/* 排序切換器 */}
+                <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                  <button 
+                    onClick={() => {
+                      setPracticeMode('ordered');
+                      setGameCards(sortCards(gameCards, 'ordered'));
+                    }}
+                    className={`px-3 py-1.5 text-sm font-bold rounded-md transition-colors flex items-center gap-1 ${practiceMode === 'ordered' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
+                  >
+                    <i className="fa-solid fa-arrow-down-1-9"></i> 依序排
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setPracticeMode('random');
+                      setGameCards(sortCards(gameCards, 'random'));
+                    }}
+                    className={`px-3 py-1.5 text-sm font-bold rounded-md transition-colors flex items-center gap-1 ${practiceMode === 'random' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
+                  >
+                    <i className="fa-solid fa-shuffle"></i> 隨機排
+                  </button>
+                </div>
+                
+                {/* 重新練習按鈕 */}
+                <button 
+                  onClick={() => {
+                    if(window.speechSynthesis) window.speechSynthesis.cancel();
+                    setFlippedIds([]);
+                    setGameCards(sortCards(gameCards, practiceMode));
+                  }} 
+                  className="text-white font-bold flex items-center gap-2 bg-indigo-500 px-4 py-2 rounded-lg hover:bg-indigo-600 shadow-sm shrink-0"
+                >
+                  <i className="fa-solid fa-rotate-right"></i> 重新練習
+                </button>
+              </div>
             </div>
 
+            {/* 卡片區域 */}
             <div className="grid gap-4 w-full mx-auto" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(140px, 1fr))` }}>
               {gameCards.map((card) => (
                 <FlashCard 
