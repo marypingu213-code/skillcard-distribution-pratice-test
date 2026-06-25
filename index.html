@@ -5,20 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>技能卡背誦與語音測驗系統 (旗艦版)</title>
 
-  <!-- 載入 Tailwind CSS (排版與美化) -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- 載入 FontAwesome 圖示 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <!-- 載入 React 核心函式庫 -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   
-  <!-- 載入 Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- 載入 Firebase (v8) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -118,7 +113,7 @@
       window.speechSynthesis.cancel();
       const cleanText = text.replace(/\\n|\n/g, '，');
       const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.lang = 'zh-TW';
+       utterance.lang = 'zh-TW';
       utterance.rate = 0.85; 
       
       if (onEndCallback) {
@@ -229,7 +224,7 @@
       const [testCriteria, setTestCriteria] = useState({});
       const [activeTestId, setActiveTestId] = useState(null);
       const [studentResults, setStudentResults] = useState([]);
-      const [expandedAttemptId, setExpandedAttemptId] = useState(null); // ★ 紀錄老師點擊展開的成績明細 ID
+      const [expandedAttemptId, setExpandedAttemptId] = useState(null);
 
       // ================= 學生端狀態 =================
       const [studentName, setStudentName] = useState('');
@@ -341,7 +336,7 @@
           
           setActiveTestId(docRef.id);
           setAppState('teacher_dashboard');
-          setExpandedAttemptId(null); // 重置展開狀態
+          setExpandedAttemptId(null);
         } catch (e) {
           console.error("Deploy failed:", e);
           alert('派發失敗，請檢查權限或網路。');
@@ -446,15 +441,15 @@
       };
 
       const toggleRecording = (cardId) => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          return alert('您的瀏覽器不支援語音輸入！請使用 Google Chrome。');
+        }
+
         if (recordingId === cardId) {
           if (window.recognitionInstance) window.recognitionInstance.stop();
           setRecordingId(null);
           return;
-        }
-
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-          return alert('您的瀏覽器不支援語音輸入！請使用 Google Chrome。');
         }
 
         if (window.recognitionInstance) window.recognitionInstance.stop();
@@ -479,7 +474,6 @@
         recognition.start();
       };
 
-      // ★ 新增：學生交卷時，連同「正確答案」與「相似度」打包進 qaData ★
       const submitTest = async () => {
         if (window.recognitionInstance) window.recognitionInstance.stop();
         setRecordingId(null);
@@ -518,7 +512,7 @@
               correctCount: correctCount,
               totalCount: gameCards.length,
               difficulty: difficulty,
-              qaData: qaList, // ★ 將明細紀錄上傳雲端，供老師檢視 ★
+              qaData: qaList, 
               timestamp: Date.now()
             });
           } catch (e) {
@@ -551,7 +545,7 @@
                 </h2>
                 <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-bold">
                   題庫共 {parsedDeck.length} 題
-                </span>
+                </h2>
               </div>
 
               <div className="border border-indigo-200 rounded-xl overflow-hidden bg-white shadow-sm mb-6">
@@ -649,7 +643,7 @@
                   <i className="fa-solid fa-chart-line text-green-500"></i> 學生測驗進度追蹤
                 </h2>
                 
-                {Object.keys(groupedResults).length === 0 ? (
+                {zip = Object.keys(groupedResults).length === 0 ? (
                   <div className="text-center py-20 text-slate-400 flex flex-col items-center">
                     <i className="fa-solid fa-hourglass-empty text-5xl mb-4 opacity-30"></i>
                     <p>等待學生繳卷中...</p>
@@ -675,7 +669,6 @@
                               const isExpanded = expandedAttemptId === attempt.id;
 
                               return (
-                                /* ★ 教師點擊可展開該次測驗 ★ */
                                 <div key={index} 
                                      className={`flex flex-col p-3 rounded-lg transition-all ${attempt.score === 100 ? 'bg-green-50 border border-green-200' : 'bg-white border border-slate-200'} hover:shadow-md cursor-pointer`}
                                      onClick={() => setExpandedAttemptId(isExpanded ? null : attempt.id)}>
@@ -693,7 +686,6 @@
                                     </div>
                                   </div>
 
-                                  {/* ★ 展開後顯示的「作答明細檢討」區塊 ★ */}
                                   {isExpanded && (
                                     <div className="mt-4 border-t border-slate-200 pt-4 grid gap-2" onClick={(e) => e.stopPropagation()}>
                                       <div className="text-xs font-bold text-slate-500 mb-1"><i className="fa-solid fa-list-check"></i> 學生作答明細：</div>
@@ -775,21 +767,21 @@
               <div className="flex flex-col sm:flex-row gap-3">
                 <button 
                   onClick={() => setDifficulty(100)} 
-                  className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all border-2 ${difficulty === 100 ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm' : 'border-slate-100 bg-white text-slate-500 hover:border-indigo-200'}`}
+                  className={difficulty === 100 ? "flex-1 py-3 px-4 rounded-xl font-bold transition-all border-2 bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm" : "border-slate-100 bg-white text-slate-500 hover:border-indigo-200 flex-1 py-3 px-4 rounded-xl font-bold transition-all border-2"}
                 >
                   <div className="text-lg mb-1">完全版</div>
                   <div className="text-xs font-normal opacity-80">100% 一字不漏</div>
                 </button>
                 <button 
                   onClick={() => setDifficulty(80)} 
-                  className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all border-2 ${difficulty === 80 ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm' : 'border-slate-100 bg-white text-slate-500 hover:border-indigo-200'}`}
+                  className={difficulty === 80 ? "flex-1 py-3 px-4 rounded-xl font-bold transition-all border-2 bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm" : "border-slate-100 bg-white text-slate-500 hover:border-indigo-200 flex-1 py-3 px-4 rounded-xl font-bold transition-all border-2"}
                 >
                   <div className="text-lg mb-1">超越版</div>
                   <div className="text-xs font-normal opacity-80">80% 語義接近</div>
                 </button>
                 <button 
                   onClick={() => setDifficulty(50)} 
-                  className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all border-2 ${difficulty === 50 ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm' : 'border-slate-100 bg-white text-slate-500 hover:border-indigo-200'}`}
+                  className={difficulty === 50 ? "flex-1 py-3 px-4 rounded-xl font-bold transition-all border-2 bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm" : "border-slate-100 bg-white text-slate-500 hover:border-indigo-200 flex-1 py-3 px-4 rounded-xl font-bold transition-all border-2"}
                 >
                   <div className="text-lg mb-1">提升版</div>
                   <div className="text-xs font-normal opacity-80">50% 語義接近</div>
@@ -814,7 +806,7 @@
         );
       }
 
-      // 5. 學生練習模式 (支援依序排 / 隨機排切換)
+      // 5. 學生練習模式
       if (appState === 'practice') {
         return (
           <div className="max-w-5xl mx-auto px-4 py-8 animate-[fadeIn_0.5s_ease-out]">
@@ -837,7 +829,7 @@
                       setPracticeMode('ordered');
                       setGameCards(sortCards(gameCards, 'ordered'));
                     }}
-                    className={`px-3 py-1.5 text-sm font-bold rounded-md transition-colors flex items-center gap-1 ${practiceMode === 'ordered' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
+                    className={practiceMode === 'ordered' ? "px-3 py-1.5 text-sm font-bold rounded-md transition-colors flex items-center gap-1 bg-white text-indigo-600 shadow-sm" : "px-3 py-1.5 text-sm font-bold rounded-md transition-colors flex items-center gap-1 text-slate-500 hover:text-indigo-400"}
                   >
                     <i className="fa-solid fa-arrow-down-1-9"></i> 依序排
                   </button>
@@ -846,7 +838,7 @@
                       setPracticeMode('random');
                       setGameCards(sortCards(gameCards, 'random'));
                     }}
-                    className={`px-3 py-1.5 text-sm font-bold rounded-md transition-colors flex items-center gap-1 ${practiceMode === 'random' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-indigo-400'}`}
+                    className={practiceMode === 'random' ? "px-3 py-1.5 text-sm font-bold rounded-md transition-colors flex items-center gap-1 bg-white text-indigo-600 shadow-sm" : "px-3 py-1.5 text-sm font-bold rounded-md transition-colors flex items-center gap-1 text-slate-500 hover:text-indigo-400"}
                   >
                     <i className="fa-solid fa-shuffle"></i> 隨機排
                   </button>
